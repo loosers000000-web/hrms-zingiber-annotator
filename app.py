@@ -142,27 +142,27 @@ uploaded_file = st.file_uploader("Upload HRMS Dataset (.csv or .xlsx)", type=['c
 
 if uploaded_file is not None:
     try:
-        # Handle file types and arbitrary header row locations
-        if uploaded_file.name.endswith('.csv'):
-            df_raw = pd.read_csv(uploaded_file, header=None)
-        else:
-            df_raw = pd.read_excel(uploaded_file, header=None)
+        with st.spinner("⏳ Reading file and parsing data..."):
+            # Handle file types and arbitrary header row locations
+            if uploaded_file.name.endswith('.csv'):
+                df_raw = pd.read_csv(uploaded_file, header=None)
+            else:
+                df_raw = pd.read_excel(uploaded_file, header=None)
+                
+            # Find the actual header row by looking for 'Formula'
+            # OPTIMIZATION: Only search the first 50 rows to prevent the app from freezing on large files
+            search_area = df_raw.head(50)
+            header_idx = search_area[search_area.apply(lambda r: r.astype(str).str.contains('Formula', case=False, na=False).any(), axis=1)].index
             
-        # Find the actual header row by looking for 'Formula'
-        header_idx = df_raw[df_raw.apply(lambda r: r.astype(str).str.contains('Formula', case=False, na=False).any(), axis=1)].index
-        if len(header_idx) > 0:
-            df = df_raw.iloc[header_idx[0]+1:].copy()
-            df.columns = df_raw.iloc[header_idx[0]]
-        else:
-            df = df_raw.copy()
+            if len(header_idx) > 0:
+                df = df_raw.iloc[header_idx[0]+1:].copy()
+                df.columns = df_raw.iloc[header_idx[0]]
+            else:
+                df = df_raw.copy()
+                
+            df = df.reset_index(drop=True)
             
-        df = df.reset_index(drop=True)
-        
-        # Standardize column names dynamically based on user prompt & provided file structure
-        col_mapping = {}
-        for col in df.columns:
-            col_str = str(col).lower()
-            if 'formula' in col_str: col_mapping[col] = 'Formula'
+            # Standardize column names dynamically based on user prompt & provided file structure
             elif 'delta' in col_str and 'mass' in col_str: col_mapping[col] = 'DeltaMass [ppm]'
             elif 'calc' in col_str and 'mw' in col_str or 'molecular weight' in col_str: col_mapping[col] = 'Calc. Molecular Weight'
             elif 'rt' in col_str and 'min' in col_str: col_mapping[col] = 'RT [min]'
